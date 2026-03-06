@@ -16,26 +16,27 @@ This repository manages standardized, reproducible **bulk RNA-seq** processing u
 
 Designed for high-throughput operation with strict project isolation, audit trails, and centralized logging.
 
+## 🌐 Live Genomics Core Project Dashboard
 
-## 🌐 Live Project Status Dashboard
+This dashboard shows real-time status of RNA-seq projects processed by the UCF Genomics Core.
 
-<iframe 
-  src="https://azarian-lab-pipelines.github.io/RNASeq-pipeline-UCF-Genomics-Core/" 
-  width="100%" 
-  height="800px" 
-  style="border:1px solid #444; border-radius:8px; overflow:hidden;"
-  title="Genomics Core Project Dashboard">
-</iframe>
+<div style="border: 2px solid #4ade80; border-radius: 12px; overflow: hidden; margin: 1.5rem 0; background: #0f172a;">
+  <iframe 
+    src="https://azarian-lab-pipelines.github.io/RNASeq-pipeline-UCF-Genomics-Core/" 
+    width="100%" 
+    height="1000px" 
+    style="border: none; display: block;"
+    title="UCF Genomics Core - Live Project Status"
+    allowfullscreen>
+  </iframe>
+</div>
 
-<p style="font-size:0.9em; color:#888; text-align:center;">
-  Live view of active/completed/archived RNA-seq projects • Auto-updates when new data is pushed
+<p style="text-align: center; font-size: 0.95em; color: #94a3b8;">
+  • Auto-updates on data push • Search by project/PI/analyst • Shows runtime & status
 </p>
 
-<!-- Optional: fallback link if iframe is blocked -->
-<p>If the dashboard doesn't load, view it directly: 
-  <a href="https://azarian-lab-pipelines.github.io/RNASeq-pipeline-UCF-Genomics-Core/" target="_blank">
-    Open Dashboard in new tab
-  </a>
+<p>If the embedded view doesn't load, open directly: 
+  <a href="https://azarian-lab-pipelines.github.io/RNASeq-pipeline-UCF-Genomics-Core/" target="_blank">Full Dashboard →</a>
 </p>
 
 ## Directory Structure
