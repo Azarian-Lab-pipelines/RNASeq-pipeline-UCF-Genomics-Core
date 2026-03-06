@@ -16,6 +16,28 @@ This repository manages standardized, reproducible **bulk RNA-seq** processing u
 
 Designed for high-throughput operation with strict project isolation, audit trails, and centralized logging.
 
+
+## 🌐 Live Project Status Dashboard
+
+<iframe 
+  src="https://azarian-lab-pipelines.github.io/RNASeq-pipeline-UCF-Genomics-Core/" 
+  width="100%" 
+  height="800px" 
+  style="border:1px solid #444; border-radius:8px; overflow:hidden;"
+  title="Genomics Core Project Dashboard">
+</iframe>
+
+<p style="font-size:0.9em; color:#888; text-align:center;">
+  Live view of active/completed/archived RNA-seq projects • Auto-updates when new data is pushed
+</p>
+
+<!-- Optional: fallback link if iframe is blocked -->
+<p>If the dashboard doesn't load, view it directly: 
+  <a href="https://azarian-lab-pipelines.github.io/RNASeq-pipeline-UCF-Genomics-Core/" target="_blank">
+    Open Dashboard in new tab
+  </a>
+</p>
+
 ## Directory Structure
 
 ```text
