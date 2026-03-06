@@ -1,0 +1,9 @@
+sample,fastq_1,fastq_2,strandedness,seq_platform
+CONTROL_REP1,/path/to/CTRL1_S1_L001_R1_001.fastq.gz,/path/to/CTRL1_S1_L001_R2_001.fastq.gz,auto,ILLUMINA
+CONTROL_REP1,/path/to/CTRL1_S1_L002_R1_001.fastq.gz,/path/to/CTRL1_S1_L002_R2_001.fastq.gz,auto,ILLUMINA
+CONTROL_REP1,/path/to/CTRL1_S1_L003_R1_001.fastq.gz,/path/to/CTRL1_S1_L003_R2_001.fastq.gz,auto,ILLUMINA
+CONTROL_REP1,/path/to/CTRL1_S1_L004_R1_001.fastq.gz,/path/to/CTRL1_S1_L004_R2_001.fastq.gz,auto,ILLUMINA
+TREATED_REP1,/path/to/TREAT1_S2_L001_R1_001.fastq.gz,/path/to/TREAT1_S2_L001_R2_001.fastq.gz,auto,ILLUMINA
+TREATED_REP1,/path/to/TREAT1_S2_L002_R1_001.fastq.gz,/path/to/TREAT1_S2_L002_R2_001.fastq.gz,auto,ILLUMINA
+TREATED_REP1,/path/to/TREAT1_S2_L003_R1_001.fastq.gz,/path/to/TREAT1_S2_L003_R2_001.fastq.gz,auto,ILLUMINA
+TREATED_REP1,/path/to/TREAT1_S2_L004_R1_001.fastq.gz,/path/to/TREAT1_S2_L004_R2_001.fastq.gz,auto,ILLUMINA

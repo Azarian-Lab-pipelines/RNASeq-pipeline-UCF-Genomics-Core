@@ -1,0 +1,7 @@
+sample,fastq_1,fastq_2,strandedness,seq_platform
+CONTROL_REP1,/full/path/to/CONTROL_REP1_R1.fastq.gz,/full/path/to/CONTROL_REP1_R2.fastq.gz,auto,ILLUMINA
+CONTROL_REP2,/full/path/to/CONTROL_REP2_R1.fastq.gz,/full/path/to/CONTROL_REP2_R2.fastq.gz,auto,ILLUMINA
+CONTROL_REP3,/full/path/to/CONTROL_REP3_R1.fastq.gz,/full/path/to/CONTROL_REP3_R2.fastq.gz,auto,ILLUMINA
+TREATED_REP1,/full/path/to/TREATED_REP1_R1.fastq.gz,/full/path/to/TREATED_REP1_R2.fastq.gz,auto,ILLUMINA
+TREATED_REP2,/full/path/to/TREATED_REP2_R1.fastq.gz,/full/path/to/TREATED_REP2_R2.fastq.gz,auto,ILLUMINA
+TREATED_REP3,/full/path/to/TREATED_REP3_R1.fastq.gz,/full/path/to/TREATED_REP3_R2.fastq.gz,auto,ILLUMINA
