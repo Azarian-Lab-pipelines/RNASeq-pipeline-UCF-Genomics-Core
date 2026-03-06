@@ -16,28 +16,94 @@ This repository manages standardized, reproducible **bulk RNA-seq** processing u
 
 Designed for high-throughput operation with strict project isolation, audit trails, and centralized logging.
 
-## 🌐 Live Genomics Core Project Dashboard
 
-This dashboard shows real-time status of RNA-seq projects processed by the UCF Genomics Core.
 
-<div style="border: 2px solid #4ade80; border-radius: 12px; overflow: hidden; margin: 1.5rem 0; background: #0f172a;">
+## 🌐 Live Project Status Dashboard
+
+Real-time overview of RNA-seq projects processed by the UCF Genomics Core Facility  
+(nf-core/rnaseq • automated, reproducible analysis)
+
+<div class="dashboard-container">
   <iframe 
-    src="https://azarian-lab-pipelines.github.io/RNASeq-pipeline-UCF-Genomics-Core/" 
-    width="100%" 
-    height="1000px" 
-    style="border: none; display: block;"
-    title="UCF Genomics Core - Live Project Status"
-    allowfullscreen>
-  </iframe>
+    src="https://azarian-lab-pipelines.github.io/RNASeq-pipeline-UCF-Genomics-Core/"
+    title="UCF Genomics Core – Live RNA-seq Project Dashboard"
+    allowfullscreen
+    loading="lazy"
+    class="dashboard-iframe"
+  ></iframe>
 </div>
 
-<p style="text-align: center; font-size: 0.95em; color: #94a3b8;">
-  • Auto-updates on data push • Search by project/PI/analyst • Shows runtime & status
+<p class="dashboard-footer">
+  • Automatically updates when new data is committed • Search by project ID, PI or analyst • Shows status & runtime
+  <br>
+  <a href="https://azarian-lab-pipelines.github.io/RNASeq-pipeline-UCF-Genomics-Core/" target="_blank" rel="noopener noreferrer">
+    Open dashboard in full window →
+  </a>
 </p>
 
-<p>If the embedded view doesn't load, open directly: 
-  <a href="https://azarian-lab-pipelines.github.io/RNASeq-pipeline-UCF-Genomics-Core/" target="_blank">Full Dashboard →</a>
-</p>
+<style>
+  .dashboard-container {
+    position: relative;
+    width: 100%;
+    max-width: 1400px;
+    margin: 1.8rem auto;
+    border: 2px solid #4ade80;
+    border-radius: 16px;
+    overflow: hidden;
+    background: #0f172a;
+    box-shadow: 0 10px 30px -10px rgba(74, 222, 128, 0.15);
+    transition: all 0.3s ease;
+  }
+
+  .dashboard-container:hover {
+    border-color: #22c55e;
+    box-shadow: 0 15px 40px -12px rgba(74, 222, 128, 0.25);
+  }
+
+  .dashboard-iframe {
+    width: 100%;
+    height: clamp(600px, 75vh, 1000px);
+    aspect-ratio: 16 / 10;
+    border: none;
+    display: block;
+    background: #0f172a url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text x="50%" y="50%" font-size="12" text-anchor="middle" dy=".3em" fill="%23555">Loading dashboard...</text></svg>') center/80px no-repeat;
+  }
+
+  @media (max-width: 768px) {
+    .dashboard-iframe {
+      height: clamp(500px, 70vh, 800px);
+      aspect-ratio: 4 / 5;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .dashboard-iframe {
+      height: 60vh;
+    }
+  }
+
+  .dashboard-footer {
+    text-align: center;
+    font-size: 0.95rem;
+    color: #94a3b8;
+    margin-top: 1rem;
+    line-height: 1.6;
+  }
+
+  .dashboard-footer a {
+    color: #4ade80;
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s;
+  }
+
+  .dashboard-footer a:hover,
+  .dashboard-footer a:focus {
+    color: #22c55e;
+    text-decoration: underline;
+  }
+</style>
+
 
 ## Directory Structure
 
