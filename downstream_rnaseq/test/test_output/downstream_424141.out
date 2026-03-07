@@ -1,0 +1,147 @@
+============================================================
+  RNA-seq Downstream Analysis Pipeline
+============================================================
+  Project:    Test_Run
+  PI:         PI
+  Organism:   human
+  Counts:     /lustre/fs1/home/ja581385/genomics_core/downstream_rnaseq/test/testdata/salmon.merged.gene_counts.tsv
+  Metadata:   /lustre/fs1/home/ja581385/genomics_core/downstream_rnaseq/test/testdata/samplesheet.csv
+  Output:     /lustre/fs1/home/ja581385/genomics_core/downstream_rnaseq/test/test_output
+  Container:  /home/ja581385/genomics_core/downstream_rnaseq/containers/rnaseq_report.sif
+  Started:    Sat Mar  7 14:43:58 EST 2026
+============================================================
+
+==== STEP 1/5: Data Preparation ====
+
+--- Running: 01_prepare_data.R at Sat Mar  7 14:43:59 EST 2026 ---
+======================================
+  RNA-seq Data Preparation
+======================================
+Counts:    /lustre/fs1/home/ja581385/genomics_core/downstream_rnaseq/test/testdata/salmon.merged.gene_counts.tsv
+Metadata:  /lustre/fs1/home/ja581385/genomics_core/downstream_rnaseq/test/testdata/samplesheet.csv
+Organism:  human
+Output:    /lustre/fs1/home/ja581385/genomics_core/downstream_rnaseq/test/test_output/prepared_data
+
+Loading count matrix...
+Raw count matrix: 2000 genes x 6 samples
+
+Annotating genes...
+Gene annotation: 19/2000 (0.9%) Ensembl IDs mapped to symbols
+
+Loading sample metadata...
+
+Matching samples...
+All samples matched directly.
+Final count matrix: 2000 genes x 6 samples
+Removing 0 genes with zero counts across all samples.
+
+Detecting experimental design...
+Detected 2 conditions: Control, Treatment
+Auto-detected reference level: 'Control'
+Design formula: ~ condition
+
+Design type: two_condition
+Generated 1 contrasts:
+  - Treatment_vs_Control (Treatment vs Control)
+
+Samples per condition:
+  Control: 3 samples
+  Treatment: 3 samples
+
+Saving prepared data...
+
+=== Data preparation complete ===
+--- Completed: 01_prepare_data.R at Sat Mar  7 14:44:11 EST 2026 ---
+==== STEP 2/5: Quality Assessment ====
+
+--- Running: 02_quality_assessment.R at Sat Mar  7 14:44:11 EST 2026 ---
+======================================
+  Quality Assessment
+======================================
+
+Creating DESeq2 dataset...
+Computing variance stabilizing transformation...
+Computing library size statistics...
+Library sizes:
+         sample total_counts detected_genes
+Ctrl_1   Ctrl_1      1017493           1992
+Ctrl_2   Ctrl_2      1022137           1992
+Ctrl_3   Ctrl_3       993957           1996
+Treat_1 Treat_1      1123524           1998
+Treat_2 Treat_2      1151177           1996
+Treat_3 Treat_3      1098123           1996
+
+Computing sample correlation matrix...
+Computing PCA...
+Variance explained - PC1: 22.7%, PC2: 20.2%, PC3: 20.0%
+Computing sample distances...
+Identifying top variable genes...
+Computing gene detection rates...
+Mean genes detected by threshold:
+  threshold mean_genes_detected
+1         0                1995
+2         1                1992
+3         5                1974
+4        10                1952
+5        50                1804
+6       100                1642
+
+Saving QC results...
+
+=== Quality assessment complete ===
+--- Completed: 02_quality_assessment.R at Sat Mar  7 14:44:26 EST 2026 ---
+==== STEP 3/5: Differential Expression ====
+
+--- Running: 03_differential_expression.R at Sat Mar  7 14:44:26 EST 2026 ---
+======================================
+  Differential Expression Analysis
+======================================
+
+Creating DESeq2 dataset...
+Genes after filtering (>=10 counts in >=3 samples): 2000
+Running DESeq2 (this may take a few minutes)...
+DESeq2 complete.
+Computing rlog transformation...
+
+Processing 1 contrasts...
+
+--- Contrast: Treatment_vs_Control ---
+  Applying apeglm shrinkage (coef: condition_Treatment_vs_Control)
+  Results: 31 up, 32 down (padj < 0.05, |LFC| > 1)
+
+=== DE Summary ===
+              contrast           comparison tested_genes significant_total
+1 Treatment_vs_Control Treatment vs Control         1933                63
+  upregulated downregulated
+1          31            32
+
+Saving DE results...
+
+=== Differential expression analysis complete ===
+--- Completed: 03_differential_expression.R at Sat Mar  7 14:44:51 EST 2026 ---
+==== STEP 4/5: Functional Enrichment ====
+
+--- Running: 04_functional_enrichment.R at Sat Mar  7 14:44:51 EST 2026 ---
+======================================
+  Functional Enrichment Analysis
+======================================
+
+Loading MSigDB gene sets...
+  Hallmark: 50 gene sets
+
+=== Enrichment: Treatment_vs_Control ===
+  Significant genes: 1 | Universe: 19 | Ranked genes: 19
+  GO:BP... 0 terms
+  GO:MF... 0 terms
+  GO:CC... 0 terms
+  KEGG... 0 pathways
+  Reactome... 0 pathways
+  GSEA Hallmark... 0 significant (padj < 0.05)
+  Building gene-pathway map... Gene-pathway map: 0 gene-pathway associations across 0 pathways
+done
+
+Saving enrichment results...
+
+=== Functional enrichment analysis complete ===
+--- Completed: 04_functional_enrichment.R at Sat Mar  7 14:48:13 EST 2026 ---
+==== STEP 5/5: Report Generation ====

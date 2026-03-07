@@ -1,0 +1,19 @@
+project:
+  type: default
+
+format:
+  html:
+    theme:
+      light: flatly
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    toc-expand: 2
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    self-contained: true
+    smooth-scroll: true
+    page-layout: full
+    fig-width: 10
+    fig-height: 7

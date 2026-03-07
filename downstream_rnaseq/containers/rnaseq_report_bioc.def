@@ -1,0 +1,205 @@
+Bootstrap: docker
+From: bioconductor/bioconductor_docker:RELEASE_3_20
+
+%labels
+    Author Bioinformatics Core
+    Description RNA-seq downstream analysis - Bioconductor base
+    Version 6.0.0
+
+%post
+    # =========================================
+    # Bioconductor base image already includes:
+    #   - R 4.4.x
+    #   - BiocManager
+    #   - BiocGenerics, S4Vectors, IRanges,
+    #     GenomicRanges, SummarizedExperiment
+    #   - AnnotationDbi, Biobase, BiocParallel
+    #   - System libraries (libcurl, libssl, etc.)
+    #   - devtools, remotes
+    # This saves 30-45 minutes of build time
+    # =========================================
+
+    apt-get update && apt-get install -y --no-install-recommends \
+        libglpk-dev libgmp-dev libmagick++-dev \
+        libzmq3-dev libgsl-dev libhdf5-dev \
+        libcairo2-dev libxt-dev \
+        && rm -rf /var/lib/apt/lists/*
+
+    # Install Quarto
+    wget -q "https://github.com/quarto-dev/quarto-cli/releases/download/v1.5.57/quarto-1.5.57-linux-amd64.deb" \
+        -O /tmp/quarto.deb
+    dpkg -i /tmp/quarto.deb && rm /tmp/quarto.deb
+
+    # =========================================
+    # Use pak for FAST package installation
+    # pak resolves dependencies correctly and
+    # installs from binary when available
+    # Reduces build from hours to ~30 minutes
+    # =========================================
+    R --no-save --no-restore -e "
+    install.packages('pak', repos='https://r-lib.r-universe.dev')
+    library(pak)
+    cat('pak:', as.character(packageVersion('pak')), '\n')
+    "
+
+    # =========================================
+    # STEP 1: All CRAN packages in one batch
+    # pak handles dependency resolution properly
+    # =========================================
+    R --no-save --no-restore -e "
+    cat('=== STEP 1: CRAN packages via pak ===\n')
+    pak::pak(c(
+        'dplyr', 'tidyr', 'readr', 'tibble',
+        'stringr', 'purrr', 'forcats',
+        'jsonlite', 'yaml', 'R.utils',
+        'matrixStats', 'data.table', 'reshape2',
+        'ggplot2', 'scales', 'patchwork',
+        'plotly', 'crosstalk', 'heatmaply',
+        'DT', 'htmlwidgets', 'htmltools',
+        'RColorBrewer', 'viridis', 'pheatmap',
+        'bslib', 'knitr', 'rmarkdown',
+        'msigdbr', 'cowplot', 'dendextend',
+        'igraph', 'ggiraph',
+        'gridGraphics', 'ggplotify', 'ggfun',
+        'aplot', 'tidytree', 'ape',
+        'ggnewscale', 'scatterpie',
+        'ggforce', 'ggraph', 'tidygraph',
+        'gson', 'circlize', 'GlobalOptions',
+        'GetoptLong', 'clue', 'shape', 'rjson',
+        'png', 'XML'
+    ), ask = FALSE)
+    cat('CRAN packages complete\n')
+    "
+
+    # =========================================
+    # STEP 2: ggrepel 0.9.5 from archive
+    # Current CRAN version needs R >= 4.5
+    # =========================================
+    R --no-save --no-restore -e "
+    cat('=== STEP 2: ggrepel 0.9.5 ===\n')
+    install.packages(
+        'https://cran.r-project.org/src/contrib/Archive/ggrepel/ggrepel_0.9.5.tar.gz',
+        repos = NULL, type = 'source', dependencies = FALSE
+    )
+    library(ggrepel)
+    cat('ggrepel:', as.character(packageVersion('ggrepel')), '\n')
+    "
+
+    # =========================================
+    # STEP 3: YuLab packages from r-universe
+    # These have pre-built binaries for R 4.4
+    # =========================================
+    R --no-save --no-restore -e "
+    cat('=== STEP 3: YuLab ecosystem ===\n')
+    repos <- c(
+        yulab = 'https://guangchuangyu.r-universe.dev',
+        bioc  = 'https://bioc.r-universe.dev',
+        CRAN  = 'https://cloud.r-project.org'
+    )
+    install.packages(c(
+        'yulab.utils', 'treeio', 'ggtree',
+        'ggtangle', 'enrichplot',
+        'GOSemSim', 'DOSE',
+        'clusterProfiler', 'ReactomePA'
+    ), repos = repos)
+    library(ggtree); cat('ggtree:', as.character(packageVersion('ggtree')), '\n')
+    library(ggtangle); cat('ggtangle:', as.character(packageVersion('ggtangle')), '\n')
+    library(clusterProfiler); cat('clusterProfiler:', as.character(packageVersion('clusterProfiler')), '\n')
+    library(ReactomePA); cat('ReactomePA:', as.character(packageVersion('ReactomePA')), '\n')
+    "
+
+    # =========================================
+    # STEP 4: Remaining Bioconductor packages
+    # Many already in the base image
+    # =========================================
+    R --no-save --no-restore -e "
+    cat('=== STEP 4: Bioconductor packages ===\n')
+    pak::pak(c(
+        'bioc::DESeq2',
+        'bioc::apeglm',
+        'bioc::fgsea',
+        'bioc::org.Hs.eg.db',
+        'bioc::org.Mm.eg.db',
+        'bioc::GO.db',
+        'bioc::reactome.db',
+        'bioc::KEGGREST',
+        'bioc::EnhancedVolcano',
+        'bioc::ComplexHeatmap',
+        'bioc::GenomicFeatures',
+        'bioc::tximport',
+        'bioc::pathview',
+        'bioc::qvalue'
+    ), ask = FALSE)
+    # ashr from CRAN
+    pak::pak('ashr', ask = FALSE)
+    library(DESeq2); cat('DESeq2:', as.character(packageVersion('DESeq2')), '\n')
+    library(fgsea); cat('fgsea:', as.character(packageVersion('fgsea')), '\n')
+    "
+
+    # =========================================
+    # STEP 5: FINAL VERIFICATION
+    # =========================================
+    R --no-save --no-restore -e "
+    cat('\n================================================\n')
+    cat('  FINAL PACKAGE VERIFICATION\n')
+    cat('================================================\n\n')
+
+    critical <- c(
+        'DESeq2', 'apeglm', 'ashr',
+        'clusterProfiler', 'ReactomePA', 'fgsea',
+        'enrichplot', 'DOSE', 'GOSemSim',
+        'org.Hs.eg.db', 'org.Mm.eg.db',
+        'AnnotationDbi', 'GO.db',
+        'ggtree', 'ggtangle', 'treeio', 'ggiraph',
+        'plotly', 'crosstalk', 'DT',
+        'heatmaply', 'ggplot2', 'ggrepel',
+        'dplyr', 'tidyr', 'readr', 'tibble',
+        'stringr', 'purrr', 'msigdbr',
+        'htmlwidgets', 'htmltools',
+        'bslib', 'knitr', 'rmarkdown',
+        'EnhancedVolcano', 'ComplexHeatmap',
+        'pheatmap', 'RColorBrewer', 'viridis',
+        'matrixStats', 'jsonlite', 'scales',
+        'patchwork', 'data.table', 'dendextend',
+        'R.utils', 'igraph', 'ggplotify',
+        'ggfun', 'aplot', 'gridGraphics', 'cowplot'
+    )
+
+    failed <- c()
+    for (pkg in critical) {
+        ok <- tryCatch({
+            suppressPackageStartupMessages(library(pkg, character.only=TRUE))
+            cat(sprintf('  OK   %-24s v%s\n', pkg, packageVersion(pkg)))
+            TRUE
+        }, error = function(e) {
+            cat(sprintf('  FAIL %-24s %s\n', pkg, e\$message))
+            FALSE
+        })
+        if (!ok) failed <- c(failed, pkg)
+    }
+
+    cat('\n================================================\n')
+    if (length(failed) == 0) {
+        cat(sprintf('  SUCCESS: All %d critical packages loaded\n', length(critical)))
+    } else {
+        cat(sprintf('  FAILED: %d packages\n', length(failed)))
+        for (f in failed) cat(sprintf('    - %s\n', f))
+        quit(status=1)
+    }
+    cat('================================================\n')
+    "
+
+    quarto check
+    rm -rf /tmp/*
+    apt-get clean
+
+%environment
+    export LC_ALL=C.UTF-8
+    export LANG=C.UTF-8
+
+%runscript
+    echo "RNA-seq Downstream Analysis Container v6"
+    exec "$@"
+
+%test
+    R --no-save --no-restore -e "library(DESeq2); library(clusterProfiler); library(ggtree); library(plotly); cat('ALL OK\n')"

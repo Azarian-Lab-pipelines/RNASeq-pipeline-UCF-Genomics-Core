@@ -1,0 +1,292 @@
+Bootstrap: docker
+From: rocker/r-ver:4.4.1
+
+%labels
+    Author Bioinformatics Core
+    Description RNA-seq downstream analysis container v5 fixed
+    Version 5.1.0
+
+%post
+    apt-get update && apt-get install -y --no-install-recommends \
+        libcurl4-openssl-dev libssl-dev libxml2-dev \
+        libfontconfig1-dev libfreetype6-dev libpng-dev \
+        libtiff5-dev libjpeg-dev libharfbuzz-dev libfribidi-dev \
+        libgit2-dev libssh2-1-dev libzmq3-dev libglpk-dev \
+        libgmp-dev libmagick++-dev cmake wget curl pandoc \
+        libgsl-dev libhdf5-dev patch git libcairo2-dev libxt-dev \
+        && rm -rf /var/lib/apt/lists/*
+
+    QUARTO_VERSION="1.5.57"
+    wget -q "https://github.com/quarto-dev/quarto-cli/releases/download/v${QUARTO_VERSION}/quarto-${QUARTO_VERSION}-linux-amd64.deb" \
+        -O /tmp/quarto.deb
+    dpkg -i /tmp/quarto.deb && rm /tmp/quarto.deb
+
+    R --no-save --no-restore -e "
+    cat('=== STEP 1: BiocManager ===\n')
+    install.packages('BiocManager', repos='https://cloud.r-project.org', quiet=TRUE)
+    BiocManager::install(version='3.20', ask=FALSE)
+    cat('BiocManager:', as.character(packageVersion('BiocManager')), '\n')
+    "
+
+    R --no-save --no-restore -e "
+    cat('=== STEP 2: Compiled foundations ===\n')
+    install.packages(c(
+        'Rcpp', 'RcppArmadillo', 'RcppEigen',
+        'RcppParallel', 'BH', 'cpp11',
+        'remotes', 'systemfonts'
+    ), repos='https://cloud.r-project.org', quiet=TRUE)
+    library(Rcpp); cat('Rcpp:', as.character(packageVersion('Rcpp')), '\n')
+    "
+
+    R --no-save --no-restore -e "
+    cat('=== STEP 3: Data handling ===\n')
+    install.packages(c(
+        'cli', 'rlang', 'vctrs', 'pillar', 'glue',
+        'lifecycle', 'tidyselect', 'generics', 'R6',
+        'magrittr', 'withr', 'fansi', 'utf8', 'pkgconfig',
+        'digest', 'fastmap',
+        'dplyr', 'tidyr', 'readr', 'tibble', 'stringr',
+        'purrr', 'forcats', 'jsonlite', 'yaml', 'R.utils',
+        'matrixStats', 'data.table', 'reshape2'
+    ), repos='https://cloud.r-project.org', quiet=TRUE)
+    library(dplyr); cat('dplyr:', as.character(packageVersion('dplyr')), '\n')
+    "
+
+    R --no-save --no-restore -e "
+    cat('=== STEP 4: ggplot2 ===\n')
+    install.packages(c(
+        'colorspace', 'viridisLite', 'munsell', 'labeling',
+        'farver', 'scales', 'isoband', 'gtable', 'ggplot2'
+    ), repos='https://cloud.r-project.org', quiet=TRUE)
+    library(ggplot2); cat('ggplot2:', as.character(packageVersion('ggplot2')), '\n')
+    "
+
+    R --no-save --no-restore -e "
+    cat('=== STEP 5: ggrepel 0.9.5 ===\n')
+    stopifnot(requireNamespace('Rcpp', quietly=TRUE))
+    stopifnot(requireNamespace('ggplot2', quietly=TRUE))
+    install.packages(
+        'https://cran.r-project.org/src/contrib/Archive/ggrepel/ggrepel_0.9.5.tar.gz',
+        repos = NULL, type = 'source', dependencies = FALSE
+    )
+    library(ggrepel); cat('ggrepel:', as.character(packageVersion('ggrepel')), '\n')
+    "
+
+    R --no-save --no-restore -e "
+    cat('=== STEP 6: ggiraph + visualization ===\n')
+    install.packages('ggiraph', repos='https://cloud.r-project.org', quiet=TRUE)
+    library(ggiraph)
+    cat('ggiraph:', as.character(packageVersion('ggiraph')), '\n')
+    stopifnot(packageVersion('ggiraph') >= '0.9.1')
+    install.packages(c(
+        'later', 'promises', 'httpuv',
+        'htmltools', 'htmlwidgets', 'crosstalk',
+        'plotly', 'heatmaply', 'DT',
+        'RColorBrewer', 'viridis', 'pheatmap',
+        'patchwork', 'dendextend', 'igraph',
+        'bslib', 'knitr', 'rmarkdown', 'msigdbr',
+        'cowplot'
+    ), repos='https://cloud.r-project.org', quiet=TRUE)
+    library(plotly); cat('plotly:', as.character(packageVersion('plotly')), '\n')
+    library(heatmaply); cat('heatmaply:', as.character(packageVersion('heatmaply')), '\n')
+    library(DT); cat('DT:', as.character(packageVersion('DT')), '\n')
+    "
+
+    R --no-save --no-restore -e "
+    cat('=== STEP 7: Bioc infrastructure ===\n')
+    BiocManager::install(c(
+        'BiocGenerics', 'S4Vectors', 'IRanges',
+        'GenomeInfoDb', 'GenomicRanges',
+        'SummarizedExperiment', 'Biobase',
+        'BiocParallel', 'Biostrings',
+        'XVector', 'zlibbioc', 'MatrixGenerics'
+    ), ask=FALSE, update=FALSE, quiet=TRUE)
+    library(SummarizedExperiment)
+    cat('SummarizedExperiment:', as.character(packageVersion('SummarizedExperiment')), '\n')
+    "
+
+    R --no-save --no-restore -e "
+    cat('=== STEP 8: Annotation databases ===\n')
+    BiocManager::install(c(
+        'AnnotationDbi', 'org.Hs.eg.db', 'org.Mm.eg.db',
+        'GO.db', 'reactome.db', 'KEGGREST'
+    ), ask=FALSE, update=FALSE, quiet=TRUE)
+    library(org.Hs.eg.db); cat('org.Hs.eg.db OK\n')
+    library(org.Mm.eg.db); cat('org.Mm.eg.db OK\n')
+    "
+
+    R --no-save --no-restore -e "
+    cat('=== STEP 9: DESeq2 ===\n')
+    BiocManager::install(c('DESeq2','apeglm','ashr'), ask=FALSE, update=FALSE, quiet=TRUE)
+    library(DESeq2); cat('DESeq2:', as.character(packageVersion('DESeq2')), '\n')
+    library(apeglm); cat('apeglm:', as.character(packageVersion('apeglm')), '\n')
+    "
+
+    R --no-save --no-restore -e "
+    cat('=== STEP 10: fgsea ===\n')
+    BiocManager::install('fgsea', ask=FALSE, update=FALSE, quiet=TRUE)
+    library(fgsea); cat('fgsea:', as.character(packageVersion('fgsea')), '\n')
+    "
+
+    R --no-save --no-restore -e "
+    cat('=== STEP 11: YuLab ecosystem ===\n')
+    library(ggiraph)
+    cat('  ggiraph:', as.character(packageVersion('ggiraph')), '(pre-installed)\n')
+    stopifnot(packageVersion('ggiraph') >= '0.9.1')
+    repos <- c(
+        yulab = 'https://guangchuangyu.r-universe.dev',
+        bioc  = 'https://bioc.r-universe.dev',
+        CRAN  = 'https://cloud.r-project.org'
+    )
+    install.packages(c(
+        'gridGraphics', 'ggplotify', 'ggfun',
+        'aplot', 'tidytree', 'ape',
+        'ggnewscale', 'scatterpie',
+        'ggforce', 'ggraph', 'tidygraph',
+        'graphlayouts', 'tweenr', 'polyclip',
+        'gson', 'yulab.utils'
+    ), repos = repos, quiet = TRUE)
+    install.packages('treeio', repos = repos, quiet = TRUE)
+    library(treeio); cat('  treeio:', as.character(packageVersion('treeio')), '\n')
+    install.packages('ggtree', repos = repos, quiet = TRUE)
+    library(ggtree); cat('  ggtree:', as.character(packageVersion('ggtree')), '\n')
+    install.packages('ggtangle', repos = repos, quiet = TRUE)
+    library(ggtangle); cat('  ggtangle:', as.character(packageVersion('ggtangle')), '\n')
+    "
+
+    R --no-save --no-restore -e "
+    cat('=== STEP 12: enrichplot ===\n')
+    repos <- c(
+        yulab = 'https://guangchuangyu.r-universe.dev',
+        bioc  = 'https://bioc.r-universe.dev',
+        CRAN  = 'https://cloud.r-project.org'
+    )
+    install.packages('enrichplot', repos = repos, quiet = TRUE)
+    library(enrichplot); cat('enrichplot:', as.character(packageVersion('enrichplot')), '\n')
+    "
+
+    R --no-save --no-restore -e "
+    cat('=== STEP 13: clusterProfiler chain ===\n')
+    repos <- c(
+        yulab = 'https://guangchuangyu.r-universe.dev',
+        bioc  = 'https://bioc.r-universe.dev',
+        CRAN  = 'https://cloud.r-project.org'
+    )
+    install.packages('GOSemSim', repos = repos, quiet = TRUE)
+    library(GOSemSim); cat('  GOSemSim:', as.character(packageVersion('GOSemSim')), '\n')
+    BiocManager::install('qvalue', ask=FALSE, update=FALSE, quiet=TRUE)
+    install.packages('DOSE', repos = repos, quiet = TRUE)
+    library(DOSE); cat('  DOSE:', as.character(packageVersion('DOSE')), '\n')
+    install.packages('clusterProfiler', repos = repos, quiet = TRUE)
+    library(clusterProfiler); cat('  clusterProfiler:', as.character(packageVersion('clusterProfiler')), '\n')
+    install.packages('ReactomePA', repos = repos, quiet = TRUE)
+    library(ReactomePA); cat('  ReactomePA:', as.character(packageVersion('ReactomePA')), '\n')
+    BiocManager::install(c('graph','Rgraphviz','KEGGgraph'), ask=FALSE, update=FALSE, quiet=TRUE)
+    install.packages(c('png','XML'), repos='https://cloud.r-project.org', quiet=TRUE)
+    BiocManager::install('pathview', ask=FALSE, update=FALSE, quiet=TRUE)
+    cat('  pathview OK\n')
+    "
+
+    R --no-save --no-restore -e "
+    cat('=== STEP 14: Additional tools ===\n')
+    BiocManager::install('EnhancedVolcano', ask=FALSE, update=FALSE, quiet=TRUE)
+    library(EnhancedVolcano); cat('EnhancedVolcano OK\n')
+    install.packages(c('circlize','GlobalOptions','GetoptLong','clue','shape','rjson'),
+                     repos='https://cloud.r-project.org', quiet=TRUE)
+    BiocManager::install('ComplexHeatmap', ask=FALSE, update=FALSE, quiet=TRUE)
+    library(ComplexHeatmap); cat('ComplexHeatmap OK\n')
+    BiocManager::install(c('GenomicFeatures','tximport'), ask=FALSE, update=FALSE, quiet=TRUE)
+    cat('GenomicFeatures OK\ntximport OK\n')
+    "
+
+    R --no-save --no-restore -e "
+    cat('\n================================================\n')
+    cat('  FINAL PACKAGE VERIFICATION\n')
+    cat('================================================\n\n')
+    critical <- c(
+        'Rcpp', 'DESeq2', 'apeglm', 'ashr',
+        'clusterProfiler', 'ReactomePA', 'fgsea',
+        'enrichplot', 'DOSE', 'GOSemSim',
+        'org.Hs.eg.db', 'org.Mm.eg.db',
+        'AnnotationDbi', 'GO.db',
+        'ggtree', 'ggtangle', 'treeio', 'ggiraph',
+        'plotly', 'crosstalk', 'DT',
+        'heatmaply', 'ggplot2', 'ggrepel',
+        'dplyr', 'tidyr', 'readr', 'tibble',
+        'stringr', 'purrr', 'msigdbr',
+        'htmlwidgets', 'htmltools',
+        'bslib', 'knitr', 'rmarkdown',
+        'EnhancedVolcano', 'ComplexHeatmap',
+        'pheatmap', 'RColorBrewer', 'viridis',
+        'matrixStats', 'jsonlite', 'scales',
+        'patchwork', 'data.table', 'dendextend',
+        'R.utils', 'igraph', 'ggplotify',
+        'ggfun', 'aplot', 'gridGraphics', 'cowplot'
+    )
+    failed <- c()
+    for (pkg in critical) {
+        ok <- tryCatch({
+            suppressPackageStartupMessages(library(pkg, character.only=TRUE))
+            cat(sprintf('  OK   %-24s v%s\n', pkg, packageVersion(pkg)))
+            TRUE
+        }, error = function(e) {
+            cat(sprintf('  FAIL %-24s %s\n', pkg, e\$message))
+            FALSE
+        })
+        if (!ok) failed <- c(failed, pkg)
+    }
+    optional <- c('pathview', 'GenomicFeatures', 'tximport')
+    for (pkg in optional) {
+        tryCatch({
+            suppressPackageStartupMessages(library(pkg, character.only=TRUE))
+            cat(sprintf('  OK   %-24s v%s (optional)\n', pkg, packageVersion(pkg)))
+        }, error = function(e) {
+            cat(sprintf('  WARN %-24s not available (optional)\n', pkg))
+        })
+    }
+    cat('\n================================================\n')
+    if (length(failed) == 0) {
+        cat(sprintf('  SUCCESS: All %d critical packages loaded\n', length(critical)))
+        cat('================================================\n')
+    } else {
+        cat(sprintf('  FAILED: %d critical packages:\n', length(failed)))
+        for (f in failed) cat(sprintf('    - %s\n', f))
+        cat('================================================\n')
+        quit(status=1)
+    }
+    "
+
+    quarto check
+
+    # =========================================
+    # CLEANUP FIX: Use rm -rf /tmp/* || true
+    # 
+    # The previous build failed here because
+    # /tmp contains host-mounted files like
+    # krb5ccmachine_NET.UCF.EDU (Kerberos) and
+    # ompi.* (OpenMPI) that belong to the HPC
+    # host OS. Even with --fakeroot, the
+    # container cannot delete host system files.
+    # This is a known issue with apptainer
+    # fakeroot builds on shared HPC systems.
+    #
+    # FIX: Add || true so rm failure does not
+    # cause the entire build to fail.
+    # Only delete R temporary files, not
+    # everything in /tmp.
+    # =========================================
+    rm -rf /tmp/Rtmp* /tmp/quarto* /tmp/downloaded_packages 2>/dev/null || true
+    apt-get clean || true
+
+%environment
+    export LC_ALL=C.UTF-8
+    export LANG=C.UTF-8
+
+%runscript
+    echo "RNA-seq Downstream Analysis Container v5.1"
+    R --version | head -1
+    echo "Quarto: $(quarto --version)"
+    exec "$@"
+
+%test
+    R --no-save --no-restore -e "library(DESeq2); library(clusterProfiler); library(ggtree); library(plotly); cat('ALL OK\n')"

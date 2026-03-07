@@ -1,0 +1,175 @@
+Bootstrap: docker
+From: rocker/r-ver:4.4.1
+
+%labels
+    Author Bioinformatics Core
+    Description RNA-seq downstream analysis and interactive reporting container
+    Version 1.0.0
+
+%post
+    # =========================================
+    # System dependencies
+    # =========================================
+    apt-get update && apt-get install -y --no-install-recommends \
+        libcurl4-openssl-dev \
+        libssl-dev \
+        libxml2-dev \
+        libfontconfig1-dev \
+        libfreetype6-dev \
+        libpng-dev \
+        libtiff5-dev \
+        libjpeg-dev \
+        libharfbuzz-dev \
+        libfribidi-dev \
+        libgit2-dev \
+        libssh2-1-dev \
+        libzmq3-dev \
+        libglpk-dev \
+        libgmp-dev \
+        libmagick++-dev \
+        cmake \
+        wget \
+        curl \
+        pandoc \
+        && rm -rf /var/lib/apt/lists/*
+
+    # =========================================
+    # Install Quarto (for report rendering)
+    # =========================================
+    QUARTO_VERSION="1.5.57"
+    wget -q "https://github.com/quarto-dev/quarto-cli/releases/download/v${QUARTO_VERSION}/quarto-${QUARTO_VERSION}-linux-amd64.deb" \
+        -O /tmp/quarto.deb
+    dpkg -i /tmp/quarto.deb
+    rm /tmp/quarto.deb
+
+    # Verify quarto installation
+    quarto --version
+
+    # =========================================
+    # Install R packages - CRAN
+    # =========================================
+    R -e "install.packages('BiocManager', repos='https://cloud.r-project.org', quiet=TRUE)"
+
+    # Core tidyverse and data handling
+    R -e "install.packages(c(
+        'dplyr',
+        'tidyr',
+        'readr',
+        'tibble',
+        'stringr',
+        'purrr',
+        'forcats',
+        'jsonlite',
+        'yaml',
+        'R.utils'
+    ), repos='https://cloud.r-project.org', quiet=TRUE)"
+
+    # Visualization
+    R -e "install.packages(c(
+        'ggplot2',
+        'ggrepel',
+        'plotly',
+        'heatmaply',
+        'RColorBrewer',
+        'viridis',
+        'pheatmap',
+        'scales',
+        'patchwork'
+    ), repos='https://cloud.r-project.org', quiet=TRUE)"
+
+    # Interactive report components
+    R -e "install.packages(c(
+        'htmlwidgets',
+        'htmltools',
+        'crosstalk',
+        'DT',
+        'bslib',
+        'knitr',
+        'rmarkdown'
+    ), repos='https://cloud.r-project.org', quiet=TRUE)"
+
+    # MSigDB interface
+    R -e "install.packages('msigdbr', repos='https://cloud.r-project.org', quiet=TRUE)"
+
+    # Matrix operations
+    R -e "install.packages(c(
+        'matrixStats',
+        'dendextend'
+    ), repos='https://cloud.r-project.org', quiet=TRUE)"
+
+    # =========================================
+    # Install R packages - Bioconductor
+    # =========================================
+
+    # Core DE analysis
+    R -e "BiocManager::install('DESeq2', ask=FALSE, update=FALSE, quiet=TRUE)"
+
+    # Enrichment analysis
+    R -e "BiocManager::install(c(
+        'clusterProfiler',
+        'ReactomePA',
+        'fgsea',
+        'enrichplot',
+        'DOSE',
+        'pathview'
+    ), ask=FALSE, update=FALSE, quiet=TRUE)"
+
+    # Annotation databases
+    R -e "BiocManager::install(c(
+        'AnnotationDbi',
+        'org.Hs.eg.db',
+        'org.Mm.eg.db'
+    ), ask=FALSE, update=FALSE, quiet=TRUE)"
+
+    # Other Bioconductor tools
+    R -e "BiocManager::install(c(
+        'EnhancedVolcano',
+        'ComplexHeatmap',
+        'SummarizedExperiment',
+        'GenomicFeatures',
+        'tximport',
+        'apeglm',
+        'ashr'
+    ), ask=FALSE, update=FALSE, quiet=TRUE)"
+
+    # =========================================
+    # Verify all critical packages load
+    # =========================================
+    R -e "
+    pkgs <- c('DESeq2', 'clusterProfiler', 'ReactomePA', 'fgsea',
+              'org.Hs.eg.db', 'org.Mm.eg.db', 'AnnotationDbi',
+              'plotly', 'crosstalk', 'DT', 'heatmaply',
+              'ggplot2', 'dplyr', 'tidyr', 'msigdbr',
+              'htmlwidgets', 'htmltools', 'apeglm', 'EnhancedVolcano')
+    for (pkg in pkgs) {
+        suppressPackageStartupMessages(library(pkg, character.only=TRUE))
+        cat(sprintf('  OK: %s (%s)\n', pkg, packageVersion(pkg)))
+    }
+    cat('\n=== All packages loaded successfully ===\n')
+    "
+
+    # Verify quarto can find R
+    quarto check
+
+    # =========================================
+    # Clean up to reduce image size
+    # =========================================
+    rm -rf /tmp/*
+    apt-get clean
+
+%environment
+    export LC_ALL=C.UTF-8
+    export LANG=C.UTF-8
+
+%runscript
+    echo "RNA-seq Downstream Analysis Container"
+    echo "R version: $(R --version | head -1)"
+    echo "Quarto version: $(quarto --version)"
+    exec "$@"
+
+%test
+    R --version
+    quarto --version
+    R -e "library(DESeq2); cat('DESeq2 OK\n')"
+    R -e "library(clusterProfiler); cat('clusterProfiler OK\n')"
+    R -e "library(plotly); cat('plotly OK\n')"

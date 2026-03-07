@@ -1,0 +1,1172 @@
+---
+title: "RNA-seq Analysis Report"
+author: "Bioinformatics Core Facility"
+date: today
+date-format: "MMMM D, YYYY"
+format:
+  html:
+    theme:
+      light: flatly
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    toc-expand: 2
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    self-contained: true
+    smooth-scroll: true
+    page-layout: full
+    fig-width: 10
+    fig-height: 7
+    css: css/custom.css
+execute:
+  echo: false
+  warning: false
+  message: false
+params:
+  project_name: "RNA-seq Project"
+  pi_name: "PI"
+  organism: "human"
+  data_dir: "prepared_data"
+  de_dir: "de_results"
+  enrichment_dir: "enrichment"
+  qc_dir: "qc_results"
+editor_options:
+  chunk_output_type: console
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+library(plotly)
+library(DT)
+library(heatmaply)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(ggrepel)
+library(htmltools)
+library(RColorBrewer)
+library(viridis)
+library(matrixStats)
+
+qc_results <- readRDS(file.path(params$qc_dir, "qc_results.rds"))
+de_output <- readRDS(file.path(params$de_dir, "de_results.rds"))
+enrichment_results <- readRDS(file.path(params$enrichment_dir, "enrichment_results.rds"))
+gene_annotation <- readRDS(file.path(params$data_dir, "gene_annotation.rds"))
+metadata <- readRDS(file.path(params$data_dir, "metadata.rds"))
+design_info <- readRDS(file.path(params$data_dir, "design_info.rds"))
+
+contrast_names <- names(de_output$results_shrunk)
+
+de_colors <- c(
+  "Upregulated" = "#E53935",
+  "Downregulated" = "#1E88E5",
+  "Not Significant" = "#BDBDBD"
+)
+```
+
+# Project Overview {#sec-overview}
+
+::: {.callout-note appearance="simple"}
+
+## Project Information
+
+```{r}
+#| label: project-info-table
+
+info_df <- data.frame(
+  Parameter = c(
+    "Project",
+    "Principal Investigator",
+    "Organism",
+    "Analysis Date",
+    "Number of Samples",
+    "Number of Conditions",
+    "Conditions",
+    "Reference Condition",
+    "Design Formula",
+    "Number of Contrasts"
+  ),
+  Value = c(
+    params$project_name,
+    params$pi_name,
+    params$organism,
+    as.character(Sys.Date()),
+    as.character(ncol(de_output$normalized_counts)),
+    as.character(design_info$n_conditions),
+    paste(design_info$conditions, collapse = ", "),
+    design_info$reference_level,
+    deparse(design_info$design_formula),
+    as.character(length(contrast_names))
+  ),
+  stringsAsFactors = FALSE
+)
+
+knitr::kable(info_df, col.names = c("Parameter", "Value"))
+```
+:::
+
+## Sample Metadata
+
+```{r}
+#| label: metadata-table
+
+DT::datatable(
+  metadata,
+  filter = "top",
+  extensions = "Buttons",
+  options = list(
+    pageLength = 25,
+    dom = "Bfrtip",
+    buttons = list(
+      list(extend = "csv", filename = "sample_metadata"),
+      list(extend = "excel", filename = "sample_metadata")
+    ),
+    scrollX = TRUE
+  ),
+  rownames = FALSE,
+  class = "display compact stripe hover",
+  caption = "Sample metadata used in this analysis"
+)
+```
+
+## Differential Expression Summary
+
+```{r}
+#| label: de-summary-overview
+
+DT::datatable(
+  de_output$de_summary,
+  options = list(dom = "t", pageLength = 25),
+  rownames = FALSE,
+  class = "display compact stripe",
+  caption = "Summary of DE genes per contrast (padj < 0.05, |log2FC| > 1)"
+) |>
+  DT::formatStyle(
+    "upregulated",
+    color = "#E53935",
+    fontWeight = "bold"
+  ) |>
+  DT::formatStyle(
+    "downregulated",
+    color = "#1E88E5",
+    fontWeight = "bold"
+  ) |>
+  DT::formatStyle(
+    "significant_total",
+    background = DT::styleColorBar(
+      de_output$de_summary$significant_total, "#81C784"
+    ),
+    backgroundSize = "100% 88%",
+    backgroundRepeat = "no-repeat",
+    backgroundPosition = "center"
+  )
+```
+
+# Data Quality {#sec-quality}
+
+## Library Size Distribution
+
+```{r}
+#| label: libsize-plot
+#| fig-height: 5
+
+lib_plot_data <- qc_results$lib_sizes |>
+  mutate(
+    hover_text = paste0(
+      "<b>", sample, "</b>",
+      "<br>Condition: ", condition,
+      "<br>Total reads: ", format(total_counts, big.mark = ","),
+      "<br>Genes detected: ", format(detected_genes, big.mark = ",")
+    )
+  )
+
+p_lib <- ggplot(
+  lib_plot_data,
+  aes(
+    x = reorder(sample, -total_counts),
+    y = total_counts / 1e6,
+    fill = condition,
+    text = hover_text
+  )
+) +
+  geom_col(width = 0.7) +
+  theme_minimal(base_size = 12) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 9)) +
+  labs(
+    x = "",
+    y = "Library Size (millions of reads)",
+    fill = "Condition",
+    title = "Library Size Distribution"
+  ) +
+  scale_fill_brewer(palette = "Set2")
+
+ggplotly(p_lib, tooltip = "text") |>
+  layout(hoverlabel = list(bgcolor = "white", font = list(size = 11)))
+```
+
+## Gene Detection Rates
+
+```{r}
+#| label: gene-detection
+#| fig-height: 5
+
+detection_long <- qc_results$lib_sizes |>
+  select(sample, condition, detected_genes, detected_above_10, detected_above_100) |>
+  tidyr::pivot_longer(
+    cols = starts_with("detected"),
+    names_to = "threshold",
+    values_to = "n_genes"
+  ) |>
+  mutate(
+    threshold = case_when(
+      threshold == "detected_genes" ~ "> 0 counts",
+      threshold == "detected_above_10" ~ "> 10 counts",
+      threshold == "detected_above_100" ~ "> 100 counts"
+    ),
+    hover_text = paste0(
+      "<b>", sample, "</b>",
+      "<br>Threshold: ", threshold,
+      "<br>Genes: ", format(n_genes, big.mark = ",")
+    )
+  )
+
+p_det <- ggplot(
+  detection_long,
+  aes(x = sample, y = n_genes, fill = threshold, text = hover_text)
+) +
+  geom_col(position = "dodge", width = 0.7) +
+  theme_minimal(base_size = 12) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 9)) +
+  labs(
+    x = "",
+    y = "Number of Genes Detected",
+    fill = "Threshold",
+    title = "Gene Detection by Count Threshold"
+  ) +
+  scale_fill_brewer(palette = "Set1")
+
+ggplotly(p_det, tooltip = "text")
+```
+
+## Principal Component Analysis
+
+::: {.panel-tabset}
+
+### PC1 vs PC2
+
+```{r}
+#| label: pca-12
+#| fig-height: 6
+
+pca_plot_data <- qc_results$pca_data |>
+  mutate(
+    hover_text = paste0(
+      "<b>", sample, "</b>",
+      "<br>Condition: ", condition,
+      "<br>PC1: ", round(PC1, 2),
+      "<br>PC2: ", round(PC2, 2)
+    )
+  )
+
+p_pca12 <- ggplot(
+  pca_plot_data,
+  aes(x = PC1, y = PC2, color = condition, text = hover_text)
+) +
+  geom_point(size = 4, alpha = 0.85) +
+  stat_ellipse(level = 0.68, linetype = "dashed", show.legend = FALSE) +
+  theme_minimal(base_size = 12) +
+  labs(
+    x = sprintf("PC1 (%.1f%% variance)", qc_results$var_explained[1]),
+    y = sprintf("PC2 (%.1f%% variance)", qc_results$var_explained[2]),
+    color = "Condition",
+    title = "PCA: PC1 vs PC2"
+  ) +
+  scale_color_brewer(palette = "Set2")
+
+ggplotly(p_pca12, tooltip = "text") |>
+  layout(hoverlabel = list(bgcolor = "white"))
+```
+
+### PC3 vs PC4
+
+```{r}
+#| label: pca-34
+#| fig-height: 6
+
+pca_plot_data34 <- qc_results$pca_data |>
+  mutate(
+    hover_text = paste0(
+      "<b>", sample, "</b>",
+      "<br>Condition: ", condition,
+      "<br>PC3: ", round(PC3, 2),
+      "<br>PC4: ", round(PC4, 2)
+    )
+  )
+
+p_pca34 <- ggplot(
+  pca_plot_data34,
+  aes(x = PC3, y = PC4, color = condition, text = hover_text)
+) +
+  geom_point(size = 4, alpha = 0.85) +
+  theme_minimal(base_size = 12) +
+  labs(
+    x = sprintf("PC3 (%.1f%% variance)", qc_results$var_explained[3]),
+    y = sprintf("PC4 (%.1f%% variance)", qc_results$var_explained[4]),
+    color = "Condition",
+    title = "PCA: PC3 vs PC4"
+  ) +
+  scale_color_brewer(palette = "Set2")
+
+ggplotly(p_pca34, tooltip = "text") |>
+  layout(hoverlabel = list(bgcolor = "white"))
+```
+
+### Scree Plot
+
+```{r}
+#| label: scree-plot
+#| fig-height: 5
+
+n_show <- min(10, length(qc_results$var_explained))
+scree_df <- data.frame(
+  PC = factor(paste0("PC", seq_len(n_show)), levels = paste0("PC", seq_len(n_show))),
+  Variance = qc_results$var_explained[seq_len(n_show)],
+  Cumulative = cumsum(qc_results$var_explained[seq_len(n_show)])
+)
+
+p_scree <- ggplot(scree_df, aes(x = PC, y = Variance)) +
+  geom_col(fill = "#5C6BC0", width = 0.6) +
+  geom_line(aes(group = 1, y = Cumulative), color = "#E53935", linewidth = 1) +
+  geom_point(aes(y = Cumulative), color = "#E53935", size = 3) +
+  theme_minimal(base_size = 12) +
+  labs(
+    x = "Principal Component",
+    y = "Variance Explained (%)",
+    title = "Scree Plot"
+  )
+
+ggplotly(p_scree)
+```
+:::
+
+## Sample Correlation Matrix
+
+```{r}
+#| label: correlation-heatmap
+#| fig-height: 8
+
+heatmaply(
+  qc_results$cor_matrix,
+  main = "Sample Correlation (Pearson) on VST-Transformed Counts",
+  colors = colorRampPalette(c("#3949AB", "white", "#E53935"))(256),
+  cellnote = round(qc_results$cor_matrix, 3),
+  fontsize_row = 9,
+  fontsize_col = 9,
+  margins = c(80, 80, 60, 20)
+)
+```
+
+## Sample Distance Heatmap
+
+```{r}
+#| label: distance-heatmap
+#| fig-height: 8
+
+heatmaply(
+  qc_results$dist_matrix,
+  main = "Sample Distance (Euclidean) on VST-Transformed Counts",
+  colors = viridis(256),
+  fontsize_row = 9,
+  fontsize_col = 9,
+  margins = c(80, 80, 60, 20)
+)
+```
+
+## Top 50 Most Variable Genes
+
+```{r}
+#| label: topvar-heatmap
+#| fig-height: 10
+
+top_var_scaled <- t(scale(t(qc_results$top_var_matrix)))
+
+annotation_df <- data.frame(
+  Condition = metadata$condition,
+  row.names = metadata$sample_id
+)
+
+heatmaply(
+  top_var_scaled,
+  main = "Top 50 Most Variable Genes (Z-score Scaled)",
+  col_side_colors = annotation_df,
+  fontsize_row = 7,
+  fontsize_col = 9,
+  showticklabels = c(TRUE, TRUE),
+  margins = c(80, 120, 60, 20)
+)
+```
+
+# Differential Expression {#sec-de}
+
+```{r}
+#| label: de-sections
+#| results: asis
+#| fig-height: 8
+
+for (idx in seq_along(contrast_names)) {
+
+  cname <- contrast_names[idx]
+  cname_display <- gsub("_", " ", cname)
+  res_df <- de_output$results_shrunk[[cname]]
+  gpmap <- enrichment_results[[cname]][["gene_pathway_map"]]
+
+  cat(sprintf("\n\n## %s {#sec-de-%d}\n\n", cname_display, idx))
+
+  # --------------------------------------------------------
+  # Volcano Plot
+  # --------------------------------------------------------
+  cat("\n\n### Volcano Plot\n\n")
+
+  volcano_data <- res_df |>
+    filter(!is.na(padj), !is.na(log2FoldChange)) |>
+    mutate(
+      neg_log10_padj = -log10(pmax(padj, 1e-300)),
+      significant = case_when(
+        padj < 0.05 & log2FoldChange > 1 ~ "Upregulated",
+        padj < 0.05 & log2FoldChange < -1 ~ "Downregulated",
+        TRUE ~ "Not Significant"
+      ),
+      significant = factor(
+        significant,
+        levels = c("Upregulated", "Downregulated", "Not Significant")
+      )
+    )
+
+  if (!is.null(gpmap) && nrow(gpmap) > 0) {
+    pw_summary <- gpmap |>
+      group_by(symbol) |>
+      summarise(
+        pathways_hover = paste(head(unique(pathway), 5), collapse = "\n"),
+        n_pathways = n_distinct(pathway),
+        .groups = "drop"
+      )
+    volcano_data <- volcano_data |>
+      left_join(pw_summary, by = "symbol") |>
+      mutate(
+        pathways_hover = ifelse(is.na(pathways_hover), "None annotated", pathways_hover),
+        n_pathways = ifelse(is.na(n_pathways), 0L, n_pathways)
+      )
+  } else {
+    volcano_data$pathways_hover <- "None annotated"
+    volcano_data$n_pathways <- 0L
+  }
+
+  volcano_data <- volcano_data |>
+    mutate(
+      hover_text = paste0(
+        "<b>", symbol, "</b>",
+        ifelse(!is.na(GENENAME), paste0("<br><i>", GENENAME, "</i>"), ""),
+        "<br><br>log2FC: ", round(log2FoldChange, 3),
+        "<br>adj.P: ", signif(padj, 3),
+        "<br>baseMean: ", round(baseMean, 1),
+        "<br><br><b>Pathways (", n_pathways, "):</b><br>",
+        pathways_hover
+      )
+    )
+
+  n_up <- sum(volcano_data$significant == "Upregulated")
+  n_down <- sum(volcano_data$significant == "Downregulated")
+
+  top_label_genes <- volcano_data |>
+    filter(significant != "Not Significant") |>
+    arrange(padj) |>
+    head(20)
+
+  xrange_v <- range(volcano_data$log2FoldChange, na.rm = TRUE)
+  ymax_v <- max(volcano_data$neg_log10_padj, na.rm = TRUE) * 1.05
+
+  fig_volcano <- plot_ly() |>
+    add_trace(
+      data = filter(volcano_data, significant == "Not Significant"),
+      x = ~log2FoldChange, y = ~neg_log10_padj,
+      type = "scatter", mode = "markers",
+      marker = list(color = "#BDBDBD", size = 3, opacity = 0.3),
+      text = ~hover_text, hoverinfo = "text",
+      name = "Not Significant"
+    ) |>
+    add_trace(
+      data = filter(volcano_data, significant == "Upregulated"),
+      x = ~log2FoldChange, y = ~neg_log10_padj,
+      type = "scatter", mode = "markers",
+      marker = list(
+        color = "#E53935", size = 5, opacity = 0.7,
+        line = list(color = "#B71C1C", width = 0.5)
+      ),
+      text = ~hover_text, hoverinfo = "text",
+      name = paste0("Up (", n_up, ")")
+    ) |>
+    add_trace(
+      data = filter(volcano_data, significant == "Downregulated"),
+      x = ~log2FoldChange, y = ~neg_log10_padj,
+      type = "scatter", mode = "markers",
+      marker = list(
+        color = "#1E88E5", size = 5, opacity = 0.7,
+        line = list(color = "#0D47A1", width = 0.5)
+      ),
+      text = ~hover_text, hoverinfo = "text",
+      name = paste0("Down (", n_down, ")")
+    ) |>
+    layout(
+      title = list(
+        text = paste("Volcano Plot:", cname_display),
+        font = list(size = 15)
+      ),
+      xaxis = list(
+        title = "log\u2082 Fold Change",
+        zeroline = TRUE,
+        zerolinecolor = "#E0E0E0"
+      ),
+      yaxis = list(title = "-log\u2081\u2080(adjusted p-value)"),
+      shapes = list(
+        list(
+          type = "line",
+          x0 = xrange_v[1], x1 = xrange_v[2],
+          y0 = -log10(0.05), y1 = -log10(0.05),
+          line = list(color = "#9E9E9E", width = 1, dash = "dash")
+        ),
+        list(
+          type = "line",
+          x0 = -1, x1 = -1, y0 = 0, y1 = ymax_v,
+          line = list(color = "#9E9E9E", width = 1, dash = "dash")
+        ),
+        list(
+          type = "line",
+          x0 = 1, x1 = 1, y0 = 0, y1 = ymax_v,
+          line = list(color = "#9E9E9E", width = 1, dash = "dash")
+        )
+      ),
+      legend = list(x = 0.01, y = 0.99, bgcolor = "rgba(255,255,255,0.85)"),
+      hoverlabel = list(bgcolor = "white", font = list(size = 11))
+    ) |>
+    config(
+      toImageButtonOptions = list(
+        format = "svg",
+        filename = paste0("volcano_", cname),
+        width = 1200,
+        height = 800
+      )
+    )
+
+  if (nrow(top_label_genes) > 0) {
+    fig_volcano <- fig_volcano |>
+      add_annotations(
+        data = top_label_genes,
+        x = ~log2FoldChange, y = ~neg_log10_padj,
+        text = ~symbol,
+        xref = "x", yref = "y",
+        showarrow = TRUE, arrowhead = 0, arrowsize = 0.5,
+        ax = 25, ay = -20,
+        font = list(size = 8, color = "#212121")
+      )
+  }
+
+  print(htmltools::tagList(fig_volcano))
+
+  cat("\n\n")
+
+  # --------------------------------------------------------
+  # MA Plot
+  # --------------------------------------------------------
+  cat("\n\n### MA Plot\n\n")
+
+  ma_data <- res_df |>
+    filter(!is.na(padj), !is.na(log2FoldChange), !is.na(baseMean)) |>
+    mutate(
+      log10_basemean = log10(baseMean + 1),
+      sig_label = case_when(
+        padj < 0.05 & log2FoldChange > 1 ~ "Upregulated",
+        padj < 0.05 & log2FoldChange < -1 ~ "Downregulated",
+        TRUE ~ "Not Significant"
+      ),
+      hover_text = paste0(
+        "<b>", symbol, "</b>",
+        "<br>baseMean: ", round(baseMean, 1),
+        "<br>log2FC: ", round(log2FoldChange, 3),
+        "<br>adj.P: ", signif(padj, 3)
+      )
+    )
+
+  p_ma <- ggplot(
+    ma_data,
+    aes(x = log10_basemean, y = log2FoldChange, color = sig_label, text = hover_text)
+  ) +
+    geom_point(alpha = 0.4, size = 1.2) +
+    scale_color_manual(values = de_colors, name = "") +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "#757575") +
+    geom_hline(yintercept = c(-1, 1), linetype = "dotted", color = "#BDBDBD") +
+    theme_minimal(base_size = 12) +
+    labs(
+      x = "log\u2081\u2080(Mean Expression + 1)",
+      y = "log\u2082 Fold Change",
+      title = paste("MA Plot:", cname_display)
+    )
+
+  print(htmltools::tagList(ggplotly(p_ma, tooltip = "text")))
+
+  cat("\n\n")
+
+  # --------------------------------------------------------
+  # Top DE Genes Heatmap
+  # --------------------------------------------------------
+  cat("\n\n### Top DE Genes Heatmap\n\n")
+
+  top_de <- res_df |>
+    filter(!is.na(padj)) |>
+    arrange(padj) |>
+    head(50)
+
+  if (nrow(top_de) > 0) {
+    ens_ids_present <- intersect(top_de$ensembl_id, rownames(de_output$normalized_counts))
+    if (length(ens_ids_present) > 2) {
+      hm_matrix <- de_output$normalized_counts[ens_ids_present, , drop = FALSE]
+      sym_lookup <- setNames(top_de$symbol, top_de$ensembl_id)
+      mapped_rownames <- sym_lookup[rownames(hm_matrix)]
+      rownames(hm_matrix) <- ifelse(
+        is.na(mapped_rownames), rownames(hm_matrix), mapped_rownames
+      )
+      hm_scaled <- t(scale(t(log2(hm_matrix + 1))))
+      hm_annot <- data.frame(
+        Condition = metadata$condition,
+        row.names = metadata$sample_id
+      )
+
+      hm_fig <- heatmaply(
+        hm_scaled,
+        main = paste("Top 50 DE Genes:", cname_display),
+        col_side_colors = hm_annot,
+        fontsize_row = 7,
+        fontsize_col = 9,
+        showticklabels = c(TRUE, TRUE),
+        margins = c(80, 120, 60, 20)
+      )
+      print(htmltools::tagList(hm_fig))
+    }
+  }
+
+  cat("\n\n")
+
+  # --------------------------------------------------------
+  # DE Gene Table
+  # --------------------------------------------------------
+  cat("\n\n### Gene Table\n\n")
+
+  de_table_data <- res_df |>
+    filter(!is.na(padj)) |>
+    select(symbol, ensembl_id, log2FoldChange, padj, baseMean, GENENAME) |>
+    mutate(
+      log2FoldChange = round(log2FoldChange, 3),
+      padj = signif(padj, 3),
+      baseMean = round(baseMean, 1)
+    ) |>
+    arrange(padj)
+
+  dt_de <- DT::datatable(
+    de_table_data,
+    filter = "top",
+    extensions = c("Buttons", "Scroller"),
+    options = list(
+      pageLength = 15,
+      dom = "Bfrtip",
+      buttons = list(
+        list(extend = "csv", filename = paste0("DE_", cname)),
+        list(extend = "excel", filename = paste0("DE_", cname))
+      ),
+      scrollX = TRUE,
+      scrollY = "500px",
+      scroller = TRUE
+    ),
+    rownames = FALSE,
+    class = "display compact hover stripe",
+    caption = paste("Differential expression results:", cname_display)
+  ) |>
+    DT::formatStyle(
+      "log2FoldChange",
+      color = DT::styleInterval(c(-1, 1), c("#1E88E5", "#424242", "#E53935"))
+    ) |>
+    DT::formatStyle(
+      "padj",
+      backgroundColor = DT::styleInterval(
+        c(0.01, 0.05),
+        c("#FFCDD2", "#FFF9C4", "white")
+      )
+    )
+
+  print(htmltools::tagList(dt_de))
+
+  cat("\n\n")
+
+}
+```
+
+# Pathway Analysis {#sec-pathways}
+
+```{r}
+#| label: enrichment-sections
+#| results: asis
+#| fig-height: 9
+
+for (idx in seq_along(contrast_names)) {
+
+  cname <- contrast_names[idx]
+  cname_display <- gsub("_", " ", cname)
+  enrich <- enrichment_results[[cname]]
+
+  cat(sprintf("\n\n## %s {#sec-pw-%d}\n\n", cname_display, idx))
+
+  # ====================================================
+  # GO Biological Process
+  # ====================================================
+  cat("\n\n### GO: Biological Process\n\n")
+
+  go_bp_df <- tryCatch(as.data.frame(enrich[["GO_BP"]]), error = function(e) NULL)
+
+  if (!is.null(go_bp_df) && nrow(go_bp_df) > 0) {
+    go_bp_plot <- go_bp_df |>
+      head(20) |>
+      mutate(
+        neg_log10_padj = -log10(p.adjust),
+        Description = factor(Description, levels = rev(Description)),
+        hover_text = paste0(
+          "<b>", Description, "</b>",
+          "<br>ID: ", ID,
+          "<br>p.adjust: ", signif(p.adjust, 3),
+          "<br>Gene Ratio: ", GeneRatio,
+          "<br>Count: ", Count,
+          "<br><br>Genes: ",
+          ifelse(nchar(geneID) > 300, paste0(substr(geneID, 1, 300), "..."), geneID)
+        )
+      )
+
+    p_gobp <- ggplot(
+      go_bp_plot,
+      aes(x = neg_log10_padj, y = Description, fill = Count, text = hover_text)
+    ) +
+      geom_col() +
+      scale_fill_gradient(low = "#C8E6C9", high = "#1B5E20") +
+      theme_minimal(base_size = 11) +
+      theme(axis.text.y = element_text(size = 8)) +
+      labs(
+        x = "-log\u2081\u2080(adjusted p-value)",
+        y = "",
+        title = "GO: Biological Process",
+        fill = "Count"
+      )
+
+    print(htmltools::tagList(ggplotly(p_gobp, tooltip = "text")))
+  } else {
+    cat("No significant GO:BP terms found for this contrast.\n\n")
+  }
+
+  cat("\n\n")
+
+  # ====================================================
+  # GO Molecular Function
+  # ====================================================
+  cat("\n\n### GO: Molecular Function\n\n")
+
+  go_mf_df <- tryCatch(as.data.frame(enrich[["GO_MF"]]), error = function(e) NULL)
+
+  if (!is.null(go_mf_df) && nrow(go_mf_df) > 0) {
+    go_mf_plot <- go_mf_df |>
+      head(20) |>
+      mutate(
+        neg_log10_padj = -log10(p.adjust),
+        Description = factor(Description, levels = rev(Description)),
+        hover_text = paste0(
+          "<b>", Description, "</b>",
+          "<br>p.adjust: ", signif(p.adjust, 3),
+          "<br>Gene Ratio: ", GeneRatio,
+          "<br>Count: ", Count
+        )
+      )
+
+    p_gomf <- ggplot(
+      go_mf_plot,
+      aes(x = neg_log10_padj, y = Description, fill = Count, text = hover_text)
+    ) +
+      geom_col() +
+      scale_fill_gradient(low = "#BBDEFB", high = "#0D47A1") +
+      theme_minimal(base_size = 11) +
+      theme(axis.text.y = element_text(size = 8)) +
+      labs(
+        x = "-log\u2081\u2080(adjusted p-value)",
+        y = "",
+        title = "GO: Molecular Function",
+        fill = "Count"
+      )
+
+    print(htmltools::tagList(ggplotly(p_gomf, tooltip = "text")))
+  } else {
+    cat("No significant GO:MF terms found for this contrast.\n\n")
+  }
+
+  cat("\n\n")
+
+  # ====================================================
+  # GO Cellular Component
+  # ====================================================
+  cat("\n\n### GO: Cellular Component\n\n")
+
+  go_cc_df <- tryCatch(as.data.frame(enrich[["GO_CC"]]), error = function(e) NULL)
+
+  if (!is.null(go_cc_df) && nrow(go_cc_df) > 0) {
+    go_cc_plot <- go_cc_df |>
+      head(20) |>
+      mutate(
+        neg_log10_padj = -log10(p.adjust),
+        Description = factor(Description, levels = rev(Description)),
+        hover_text = paste0(
+          "<b>", Description, "</b>",
+          "<br>p.adjust: ", signif(p.adjust, 3),
+          "<br>Gene Ratio: ", GeneRatio,
+          "<br>Count: ", Count
+        )
+      )
+
+    p_gocc <- ggplot(
+      go_cc_plot,
+      aes(x = neg_log10_padj, y = Description, fill = Count, text = hover_text)
+    ) +
+      geom_col() +
+      scale_fill_gradient(low = "#FFF9C4", high = "#F57F17") +
+      theme_minimal(base_size = 11) +
+      theme(axis.text.y = element_text(size = 8)) +
+      labs(
+        x = "-log\u2081\u2080(adjusted p-value)",
+        y = "",
+        title = "GO: Cellular Component",
+        fill = "Count"
+      )
+
+    print(htmltools::tagList(ggplotly(p_gocc, tooltip = "text")))
+  } else {
+    cat("No significant GO:CC terms found for this contrast.\n\n")
+  }
+
+  cat("\n\n")
+
+  # ====================================================
+  # KEGG Pathways
+  # ====================================================
+  cat("\n\n### KEGG Pathways\n\n")
+
+  kegg_df <- tryCatch(as.data.frame(enrich[["KEGG"]]), error = function(e) NULL)
+
+  if (!is.null(kegg_df) && nrow(kegg_df) > 0) {
+    kegg_plot <- kegg_df |>
+      head(20) |>
+      mutate(
+        neg_log10_padj = -log10(p.adjust),
+        Description = factor(Description, levels = rev(Description)),
+        hover_text = paste0(
+          "<b>", Description, "</b>",
+          "<br>ID: ", ID,
+          "<br>p.adjust: ", signif(p.adjust, 3),
+          "<br>Gene Ratio: ", GeneRatio,
+          "<br>Count: ", Count,
+          "<br><br>Genes: ",
+          ifelse(nchar(geneID) > 300, paste0(substr(geneID, 1, 300), "..."), geneID)
+        )
+      )
+
+    p_kegg <- ggplot(
+      kegg_plot,
+      aes(x = neg_log10_padj, y = Description, fill = Count, text = hover_text)
+    ) +
+      geom_col() +
+      scale_fill_gradient(low = "#FFE0B2", high = "#E65100") +
+      theme_minimal(base_size = 11) +
+      theme(axis.text.y = element_text(size = 8)) +
+      labs(
+        x = "-log\u2081\u2080(adjusted p-value)",
+        y = "",
+        title = "KEGG Pathways",
+        fill = "Count"
+      )
+
+    print(htmltools::tagList(ggplotly(p_kegg, tooltip = "text")))
+  } else {
+    cat("No significant KEGG pathways found for this contrast.\n\n")
+  }
+
+  cat("\n\n")
+
+  # ====================================================
+  # Reactome Pathways
+  # ====================================================
+  cat("\n\n### Reactome Pathways\n\n")
+
+  react_df <- tryCatch(as.data.frame(enrich[["Reactome"]]), error = function(e) NULL)
+
+  if (!is.null(react_df) && nrow(react_df) > 0) {
+    react_plot <- react_df |>
+      head(20) |>
+      mutate(
+        neg_log10_padj = -log10(p.adjust),
+        Description = factor(Description, levels = rev(Description)),
+        hover_text = paste0(
+          "<b>", Description, "</b>",
+          "<br>p.adjust: ", signif(p.adjust, 3),
+          "<br>Gene Ratio: ", GeneRatio,
+          "<br>Count: ", Count,
+          "<br><br>Genes: ",
+          ifelse(nchar(geneID) > 300, paste0(substr(geneID, 1, 300), "..."), geneID)
+        )
+      )
+
+    p_react <- ggplot(
+      react_plot,
+      aes(x = neg_log10_padj, y = Description, fill = Count, text = hover_text)
+    ) +
+      geom_col() +
+      scale_fill_gradient(low = "#E1BEE7", high = "#4A148C") +
+      theme_minimal(base_size = 11) +
+      theme(axis.text.y = element_text(size = 8)) +
+      labs(
+        x = "-log\u2081\u2080(adjusted p-value)",
+        y = "",
+        title = "Reactome Pathways",
+        fill = "Count"
+      )
+
+    print(htmltools::tagList(ggplotly(p_react, tooltip = "text")))
+  } else {
+    cat("No significant Reactome pathways found for this contrast.\n\n")
+  }
+
+  cat("\n\n")
+
+  # ====================================================
+  # GSEA Hallmark
+  # ====================================================
+  cat("\n\n### GSEA: MSigDB Hallmark\n\n")
+
+  hallmark_res <- enrich[["GSEA_Hallmark"]]
+
+  if (!is.null(hallmark_res) && nrow(hallmark_res) > 0) {
+    hallmark_plot <- hallmark_res |>
+      filter(padj < 0.25) |>
+      arrange(NES) |>
+      mutate(
+        pathway_clean = factor(pathway_clean, levels = pathway_clean),
+        direction = ifelse(NES > 0, "Activated", "Suppressed"),
+        hover_text = paste0(
+          "<b>", pathway_clean, "</b>",
+          "<br>NES: ", round(NES, 3),
+          "<br>p.adjust: ", signif(padj, 3),
+          "<br>Gene set size: ", size
+        )
+      )
+
+    if (nrow(hallmark_plot) > 0) {
+      p_hall <- ggplot(
+        hallmark_plot,
+        aes(x = NES, y = pathway_clean, fill = direction, text = hover_text)
+      ) +
+        geom_col() +
+        scale_fill_manual(values = c("Activated" = "#E53935", "Suppressed" = "#1E88E5")) +
+        geom_vline(xintercept = 0, color = "#424242", linewidth = 0.5) +
+        theme_minimal(base_size = 11) +
+        theme(axis.text.y = element_text(size = 8)) +
+        labs(
+          x = "Normalized Enrichment Score (NES)",
+          y = "",
+          title = "GSEA: Hallmark Gene Sets",
+          fill = "Direction"
+        )
+
+      print(htmltools::tagList(ggplotly(p_hall, tooltip = "text")))
+    } else {
+      cat("No Hallmark gene sets passed padj < 0.25 threshold.\n\n")
+    }
+  } else {
+    cat("No Hallmark GSEA results available for this contrast.\n\n")
+  }
+
+  cat("\n\n")
+
+  # ====================================================
+  # Combined Enrichment Table
+  # ====================================================
+  cat("\n\n### Enrichment Results Table\n\n")
+
+  combined_enrich <- bind_rows(
+    if (!is.null(go_bp_df) && nrow(go_bp_df) > 0) {
+      go_bp_df |> mutate(Database = "GO:BP")
+    },
+    if (!is.null(go_mf_df) && nrow(go_mf_df) > 0) {
+      go_mf_df |> mutate(Database = "GO:MF")
+    },
+    if (!is.null(go_cc_df) && nrow(go_cc_df) > 0) {
+      go_cc_df |> mutate(Database = "GO:CC")
+    },
+    if (!is.null(kegg_df) && nrow(kegg_df) > 0) {
+      kegg_df |> mutate(Database = "KEGG")
+    },
+    if (!is.null(react_df) && nrow(react_df) > 0) {
+      react_df |> mutate(Database = "Reactome")
+    }
+  )
+
+  if (!is.null(combined_enrich) && nrow(combined_enrich) > 0) {
+    enrich_table <- combined_enrich |>
+      select(Database, ID, Description, GeneRatio, p.adjust, Count, geneID) |>
+      mutate(p.adjust = signif(p.adjust, 3))
+
+    dt_enrich <- DT::datatable(
+      enrich_table,
+      filter = "top",
+      extensions = c("Buttons", "Scroller"),
+      options = list(
+        pageLength = 15,
+        dom = "Bfrtip",
+        buttons = list(
+          list(extend = "csv", filename = paste0("enrichment_", cname)),
+          list(extend = "excel", filename = paste0("enrichment_", cname))
+        ),
+        scrollX = TRUE,
+        scrollY = "500px",
+        scroller = TRUE
+      ),
+      rownames = FALSE,
+      class = "display compact hover",
+      caption = paste("All enrichment results:", cname_display)
+    ) |>
+      DT::formatStyle(
+        "p.adjust",
+        backgroundColor = DT::styleInterval(
+          c(0.001, 0.01, 0.05),
+          c("#EF9A9A", "#FFCDD2", "#FFF9C4", "white")
+        )
+      )
+
+    print(htmltools::tagList(dt_enrich))
+  } else {
+    cat("No significant enrichment results found for this contrast.\n\n")
+  }
+
+  cat("\n\n")
+}
+```
+
+# Gene Explorer {#sec-explorer}
+
+::: {.callout-tip}
+## How to use this section
+Search for any gene in the table below using the search box
+Sort by any column by clicking column headers
+Filter using the filter boxes at the top of each column
+Download results using the CSV or Excel buttons
+Scroll down to see expression boxplots for the top DE genes
+:::
+
+## Searchable Gene Table
+
+```{r}
+#| label: gene-explorer-table
+
+gene_table_data <- de_output$results_shrunk[[1]] |>
+  filter(!is.na(padj)) |>
+  select(symbol, ensembl_id, log2FoldChange, padj, baseMean, GENENAME) |>
+  mutate(
+    log2FoldChange = round(log2FoldChange, 3),
+    padj = signif(padj, 3),
+    baseMean = round(baseMean, 1)
+  ) |>
+  arrange(padj)
+
+DT::datatable(
+  gene_table_data,
+  filter = "top",
+  extensions = c("Buttons", "Scroller"),
+  options = list(
+    pageLength = 20,
+    dom = "Bfrtip",
+    buttons = list(
+      list(extend = "csv", filename = "all_genes"),
+      list(extend = "excel", filename = "all_genes")
+    ),
+    scrollX = TRUE,
+    scrollY = "500px",
+    scroller = TRUE,
+    search = list(regex = TRUE, caseInsensitive = TRUE)
+  ),
+  rownames = FALSE,
+  class = "display compact hover stripe",
+  caption = paste(
+    "All tested genes from first contrast:",
+    gsub("_", " ", contrast_names[1])
+  )
+) |>
+  DT::formatStyle(
+    "log2FoldChange",
+    color = DT::styleInterval(c(-1, 1), c("#1E88E5", "#424242", "#E53935"))
+  ) |>
+  DT::formatStyle(
+    "padj",
+    backgroundColor = DT::styleInterval(
+      c(0.01, 0.05),
+      c("#FFCDD2", "#FFF9C4", "white")
+    )
+  )
+```
+
+## Top Gene Expression Profiles
+
+Expression boxplots for the top differentially expressed genes, showing normalized counts across all conditions.
+
+```{r}
+#| label: gene-boxplots
+#| results: asis
+#| fig-height: 4
+
+top_genes_for_boxplot <- de_output$results_shrunk[[1]] |>
+  filter(!is.na(padj)) |>
+  arrange(padj) |>
+  head(12)
+
+if (nrow(top_genes_for_boxplot) > 0) {
+  gene_ids <- top_genes_for_boxplot$ensembl_id
+  valid_genes <- intersect(gene_ids, rownames(de_output$normalized_counts))
+  
+  if (length(valid_genes) > 0) {
+    counts_sub <- de_output$normalized_counts[valid_genes, , drop = FALSE]
+    
+    counts_long <- as.data.frame(counts_sub) |>
+      tibble::rownames_to_column("ensembl_id") |>
+      tidyr::pivot_longer(-ensembl_id, names_to = "sample_id", values_to = "count") |>
+      left_join(metadata, by = "sample_id") |>
+      left_join(select(top_genes_for_boxplot, ensembl_id, symbol), by = "ensembl_id")
+      
+    for (gid in valid_genes) {
+      gene_data <- counts_long |> filter(ensembl_id == gid)
+      gene_sym <- unique(gene_data$symbol)
+      
+      p <- ggplot(gene_data, aes(x = condition, y = count, fill = condition)) +
+        geom_boxplot(alpha = 0.7, outlier.shape = NA) +
+        geom_jitter(width = 0.2, size = 2, alpha = 0.8) +
+        theme_minimal() +
+        labs(title = paste0(gene_sym, " (", gid, ")"), y = "Normalized Counts", x = "") +
+        theme(legend.position = "none")
+        
+      print(p)
+      cat("\n\n")
+    }
+  }
+}
+```
+

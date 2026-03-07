@@ -1,15 +1,12 @@
 #!/bin/bash
-#SBATCH --job-name=nfcore___PROJECT_ID__
+#SBATCH --job-name=nfcore__PROJECT_ID__
 #SBATCH --output=logs/slurm_nextflow_%j.out
 #SBATCH --error=logs/slurm_nextflow_%j.err
 #SBATCH --time=96:00:00
 #SBATCH --cpus-per-task=2
 #SBATCH --mem=8G
-#SBATCH --partition=normal
-#SBATCH --account=tazarian
-#SBATCH --qos=tazarian
-#SBATCH --mail-type=BEGIN,END,FAIL
-#SBATCH --mail-user=ja581385@university.edu
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=ja581385@ucf.edu
 # =============================================================================
 # nf-core/rnaseq v3.23.0 Launch Script
 #
@@ -51,7 +48,7 @@
 set -euo pipefail
 
 # =====================================================================
-# CONFIGURATION — Edit these if needed
+# CONFIGURATION
 # =====================================================================
 
 # Pipeline version — always pin to a specific version for reproducibility
@@ -391,3 +388,5 @@ echo ""
 echo "============================================="
 
 exit ${EXIT_CODE}
+
+project_tracker update "${PROJECT_ID}" running "Pipeline launched"

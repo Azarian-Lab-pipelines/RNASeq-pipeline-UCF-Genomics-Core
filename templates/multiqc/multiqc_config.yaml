@@ -33,7 +33,7 @@ intro_text: >
 
 report_comment: >
   If you have questions about this report, please contact the
-  Genomics Core Facility at ja581385@university.edu.
+  UCF Genomics Core Facility at BSBSgenomicsCore@ucf.edu or Jash Trivedi at ja581385@ucf.edu
 
 
 # =====================================================================
@@ -67,7 +67,7 @@ report_header_info:
   - Pipeline: "nf-core/rnaseq v3.23.0"
   - Aligner: "STAR → Salmon"
   - Facility: "UCF Genomics Core"
-  - Contact: "ja581385@university.edu"
+  - Contact: "BSBSgenomicsCore@ucf.edu"
 
 
 # =====================================================================
@@ -96,7 +96,7 @@ show_analysis_time: true
 #   7. Duplication
 #
 # The pipeline performs extensive quality control including FastQC,
-# RSeQC, Qualimap, dupRadar, Preseq, and DESeq2 [1].
+# RSeQC, Qualimap, dupRadar, Preseq, and DESeq2.
 # =====================================================================
 
 module_order:

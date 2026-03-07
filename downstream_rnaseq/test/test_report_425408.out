@@ -1,0 +1,18 @@
+=== Testing report generation ===
+  OK: prepared_data/count_matrix.rds
+  OK: qc_results/qc_results.rds
+  OK: de_results/de_results.rds
+  OK: enrichment/enrichment_results.rds
+
+  Rendering report...
+  Working dir: /home/ja581385/genomics_core/downstream_rnaseq/test/test_output/report/workspace
+
+PWD: /home/ja581385/genomics_core/downstream_rnaseq/test/test_output/report/workspace
+Files: _quarto.yml assets css js report.qmd sections
+
+  Searching for rendered report...
+/home/ja581385/genomics_core/downstream_rnaseq/test/test_output/report/workspace/Test_Run_report.html
+
+=== SUCCESS ===
+Report: /home/ja581385/genomics_core/downstream_rnaseq/test/test_output/report/Test_Run_report.html
+-rw-r--r-- 1 ja581385 domain_users 6.8M Mar  7 15:16 /home/ja581385/genomics_core/downstream_rnaseq/test/test_output/report/Test_Run_report.html

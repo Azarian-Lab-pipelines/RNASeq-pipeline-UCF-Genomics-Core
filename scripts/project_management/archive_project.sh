@@ -165,6 +165,8 @@ mkdir -p ${BASE}/logs/audits
 echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) | ARCHIVED | ${PROJECT_ID} | ARCHIVE:${ARCHIVE_DIR} | BY:$(whoami)" \
     >> ${BASE}/logs/audits/project_audit.log
 
+project_tracker update "${PROJECT_ID}" archived "Archived to ${YEAR}"
+
 echo ""
 echo "============================================="
 echo "  ✅ Archive complete"

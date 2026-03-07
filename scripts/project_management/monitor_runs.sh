@@ -137,3 +137,6 @@ echo "  Available slots: $((250 - RUNNING_JOBS))"
 
 echo ""
 echo "============================================="
+
+echo "=== Project Tracker Summary ==="
+project_tracker summary

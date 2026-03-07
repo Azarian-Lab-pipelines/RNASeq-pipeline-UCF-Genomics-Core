@@ -1,0 +1,11 @@
+{
+  "n_genes": 2000,
+  "n_samples": 6,
+  "n_conditions": 2,
+  "conditions": ["Control", "Treatment"],
+  "design_type": "two_condition",
+  "reference_level": "Control",
+  "contrasts": "Treatment_vs_Control",
+  "organism": "human",
+  "annotation_mapped_pct": 0.9
+}

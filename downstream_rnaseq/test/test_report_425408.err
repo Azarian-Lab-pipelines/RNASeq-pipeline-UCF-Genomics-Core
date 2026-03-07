@@ -1,0 +1,73 @@
+INFO:    gocryptfs not found, will not be able to use gocryptfs
+[31m
+
+processing file: report.qmd
+[39m1/33                      
+2/33 [setup]              
+3/33                      
+4/33 [project-info-table] 
+5/33                      
+6/33 [metadata-table]     
+7/33                      
+8/33 [de-summary-overview]
+9/33                      
+10/33 [libsize-plot]       
+11/33                      
+12/33 [gene-detection]     
+13/33                      
+14/33 [pca-12]             
+15/33                      
+16/33 [pca-34]             
+17/33                      
+18/33 [scree-plot]         
+19/33                      
+20/33 [correlation-heatmap]
+21/33                      
+22/33 [distance-heatmap]   
+23/33                      
+24/33 [topvar-heatmap]     
+25/33                      
+26/33 [de-sections]        
+27/33                      
+28/33 [enrichment-sections]
+29/33                      
+30/33 [gene-explorer-table]
+31/33                      
+32/33 [gene-boxplots]      
+33/33                      
+[31moutput file: report.knit.md
+
+[39m[1mpandoc --output Test_Run_report.html[22m
+  to: html
+  standalone: true
+  self-contained: true
+  section-divs: true
+  html-math-method: mathjax
+  wrap: none
+  default-image-extension: png
+  toc: true
+  toc-depth: 3
+  number-sections: true
+  css:
+    - css/custom.css
+  
+[1mmetadata[22m
+  document-css: false
+  link-citations: true
+  lang: en
+  theme:
+    light: flatly
+  toc-location: left
+  toc-expand: 2
+  code-summary: Show code
+  smooth-scroll: true
+  page-layout: full
+  title: RNA-seq Analysis Report
+  author: Bioinformatics Core Facility
+  date: today
+  date-format: 'MMMM D, YYYY'
+  editor_options:
+    chunk_output_type: console
+  
+Output created: Test_Run_report.html
+
