@@ -198,7 +198,34 @@ mkdir -p ${BASE}/logs/audits
 echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) | CREATED | ${PROJECT_ID} | PI:${PI_NAME} | ${ORGANISM} | ANALYST:${ANALYST}" \
     >> ${BASE}/logs/audits/project_audit.log
 
-project_tracker update "${PROJECT_ID}" initialized "Project created via init_project.sh"
+
+sqlite3 "${BASE}/projects/project_tracker.db" <<SQL
+INSERT OR IGNORE INTO projects (
+    project_id, 
+    pi_name, 
+    analyst, 
+    organism, 
+    date_received, 
+    status, 
+    active_path, 
+    created_at, 
+    last_updated
+) VALUES (
+    '${PROJECT_ID}',
+    '${PI_NAME//\'/\'\'}',
+    '${ANALYST//\'/\'\'}',
+    '${ORGANISM}',
+    '${DATE}',
+    'initialized',
+    '${PROJECT_DIR}',
+    datetime('now'),
+    datetime('now')
+);
+SQL
+
+
+project_tracker update "${PROJECT_ID}" initialized
+
 
 # ---- Summary ----
 echo ""

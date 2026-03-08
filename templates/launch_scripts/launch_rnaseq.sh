@@ -219,6 +219,13 @@ mkdir -p logs
 mkdir -p ${BASE}/logs/pipeline_runs
 
 
+# =============================================================================
+# Update central project tracker: mark as running
+# =============================================================================
+PROJECT_ID="$(basename "$(pwd)")"  # e.g., PROJ-2026-001
+project_tracker update "${PROJECT_ID}" running "Pipeline job submitted via sbatch on $(date +%Y-%m-%d\ %H:%M:%S)"
+
+
 # =====================================================================
 # LAUNCH PIPELINE
 #
@@ -269,6 +276,17 @@ nextflow run ${PIPELINE_PATH} \
     2>&1 | tee logs/nextflow_run_${TIMESTAMP}.log
 
 EXIT_CODE=$?
+
+
+# =============================================================================
+# Final status update based on pipeline exit code
+# =============================================================================
+if [ ${EXIT_CODE} -eq 0 ]; then
+    project_tracker update "${PROJECT_ID}" completed "Pipeline finished successfully on $(date +%Y-%m-%d\ %H:%M:%S)"
+else
+    project_tracker update "${PROJECT_ID}" failed "Pipeline failed with exit code ${EXIT_CODE} on $(date +%Y-%m-%d\ %H:%M:%S)"
+fi
+
 
 
 # =====================================================================
