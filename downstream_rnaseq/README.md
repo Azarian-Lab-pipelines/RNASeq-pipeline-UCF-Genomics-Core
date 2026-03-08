@@ -39,10 +39,6 @@ This pipeline takes **nf-core/rnaseq** output (STAR + Salmon) and automatically 
 - Functional enrichment (GO, KEGG, Reactome, GSEA Hallmark)
 - Generation of a **self-contained interactive HTML report** using Quarto + Plotly + crosstalk
 
-The report is inspired by high-quality commercial RNA-seq reporting services and is designed to be usable by non-bioinformaticians.
-
-**One command → full analysis + beautiful interactive report.**
-
 ---
 
 ## What This Pipeline Does
