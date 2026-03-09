@@ -223,7 +223,7 @@ mkdir -p ${BASE}/logs/pipeline_runs
 # Update central project tracker: mark as running
 # =============================================================================
 PROJECT_ID="$(basename "$(pwd)")"  # e.g., PROJ-2026-001
-project_tracker update "${PROJECT_ID}" running "Pipeline job submitted via sbatch on $(date +%Y-%m-%d\ %H:%M:%S)"
+project_tracker update "${PROJECT_ID}"
 
 
 # =====================================================================
@@ -282,9 +282,9 @@ EXIT_CODE=$?
 # Final status update based on pipeline exit code
 # =============================================================================
 if [ ${EXIT_CODE} -eq 0 ]; then
-    project_tracker update "${PROJECT_ID}" completed "Pipeline finished successfully on $(date +%Y-%m-%d\ %H:%M:%S)"
+    project_tracker update "${PROJECT_ID}" completed
 else
-    project_tracker update "${PROJECT_ID}" failed "Pipeline failed with exit code ${EXIT_CODE} on $(date +%Y-%m-%d\ %H:%M:%S)"
+    project_tracker update "${PROJECT_ID}" failed
 fi
 
 
@@ -407,4 +407,4 @@ echo "============================================="
 
 exit ${EXIT_CODE}
 
-project_tracker update "${PROJECT_ID}" running "Pipeline launched"
+project_tracker update "${PROJECT_ID}" running

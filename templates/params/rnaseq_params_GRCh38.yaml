@@ -179,7 +179,7 @@ min_trimmed_reads: 10000
 # =====================================================================
 
 # Path to Kraken2 database directory — uncomment to enable
-kraken2_db: "/home/ja581385/genomics_core/references/kraken2/k2_standard"
+kraken_db: "/home/ja581385/genomics_core/references/kraken2/k2_standard"
 
 # Disable Kraken2 even if database path is provided
 # skip_kraken2: true
