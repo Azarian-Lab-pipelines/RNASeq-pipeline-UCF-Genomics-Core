@@ -7,6 +7,7 @@
 import sqlite3
 from datetime import datetime
 import os
+import json
 
 DB_PATH = "/home/ja581385/genomics_core/projects/project_tracker.db"
 OUTPUT_DIR = "/home/ja581385/genomics_core/docs"
@@ -181,7 +182,7 @@ def generate_dashboard():
     projects_data = [dict(row) for row in rows]
     last_updated = datetime.now().strftime("%Y-%m-%d %H:%M")
 
-    html = HTML_TEMPLATE.replace("__PROJECTS_DATA__", str(projects_data))
+    html = HTML_TEMPLATE.replace("__PROJECTS_DATA__", json.dumps(projects_data))
     html = html.replace("__LAST_UPDATED__", last_updated)
 
     os.makedirs(OUTPUT_DIR, exist_ok=True)
