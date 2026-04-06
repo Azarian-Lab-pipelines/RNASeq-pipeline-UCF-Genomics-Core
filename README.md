@@ -71,14 +71,14 @@ cd projects/active/PROJ-2025-042
 ln -s /path/from/sequencer/*.fastq.gz data/fastq/
 
 # 5. Generate & edit samplesheet
-python ../../scripts/validation/generate_samplesheet.py \
+python ../../../scripts/validation/generate_samplesheet.py \
     --input_dir data/fastq \
     --output samplesheet.csv
 
 # → Open samplesheet.csv and add condition, replicate, other metadata.
 
 # 6. Validate samplesheet
-python ../../scripts/validation/validate_samplesheet.py samplesheet.csv
+python ../../../scripts/validation/validate_samplesheet.py samplesheet.csv
 
 # 7. Launch pipeline (SLURM submission)
 sbatch launch_pipeline.sh
