@@ -280,7 +280,7 @@ save_align_intermeds: true
 
 # Save unaligned reads as FASTQ files
 # Useful for contamination analysis or custom downstream processing
-# save_unaligned: true
+save_unaligned: true
 
 # The pipeline supports a two-step reprocessing workflow using BAM files
 # from previous runs. Run initially with save_align_intermeds to generate
@@ -300,4 +300,4 @@ multiqc_title: "RNA-seq QC Report - __PROJECT_ID__"
 
 # Custom MultiQC configuration file for branding and customization (optional)
 # Uncomment to use the project-specific multiqc_config.yaml
-# multiqc_config: "multiqc_config.yaml"
+multiqc_config: "multiqc_config.yaml"

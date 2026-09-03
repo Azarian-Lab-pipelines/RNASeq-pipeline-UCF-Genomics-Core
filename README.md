@@ -1,4 +1,4 @@
-# 🧬 UCF Genomics Core Facility – RNA-seq Analysis Pipeline (short-read)
+# 🧬 UCF Genomics Core Facility – Nextflow Pipelines
 
 ## Overview
 

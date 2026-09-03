@@ -91,6 +91,23 @@ source ${BASE}/bin/activate_genomics_core.sh
 module load singularity 2>/dev/null || module load apptainer 2>/dev/null || true
 
 
+# =============================================================================
+# REFRESH PASSWD/GROUP (for LDAP UID resolution on compute nodes)
+# =============================================================================
+
+mkdir -p /home/ja581385/genomics_core/configs/singularity_fixes
+cat << PASSWD > /home/ja581385/genomics_core/configs/singularity_fixes/passwd
+root:x:0:0:root:/root:/bin/bash
+nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin
+ja581385:x:$(id -u):$(id -g):ja581385:/home/ja581385:/bin/bash
+PASSWD
+cat << GROUP > /home/ja581385/genomics_core/configs/singularity_fixes/group
+root:x:0:
+nobody:x:65534:
+ja581385:x:$(id -g):
+GROUP
+
+
 # =====================================================================
 # JOB INFORMATION
 # =====================================================================
@@ -223,7 +240,7 @@ mkdir -p ${BASE}/logs/pipeline_runs
 # Update central project tracker: mark as running
 # =============================================================================
 PROJECT_ID="$(basename "$(pwd)")"  # e.g., PROJ-2026-001
-project_tracker update "${PROJECT_ID}"
+project_tracker update "${PROJECT_ID}" initialized
 
 
 # =====================================================================
@@ -261,7 +278,8 @@ echo ""
 
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 
-nextflow run ${PIPELINE_PATH} \
+nextflow run nf-core/rnaseq \
+    -revision 3.23.0
     -params-file params.yaml \
     -profile singularity \
     -c ${SLURM_CONFIG} \
